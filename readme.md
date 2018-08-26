@@ -20,4 +20,4 @@ NATS UI is a bare bones sample app demonstrating usage of NATS Lib.  It is not r
 
 ## Shameless Plug ##
 
-If you want to learn more about creating magnificent cross platform desktop applications with Qt 5 then checkout the tremendously well written book [link](/https://www.packtpub.com/web-development/learn-qt-5 "Learn Qt5") by Nicholas Sherriff, who is really very handsome.  Smiley face with sunglasses.
+If you want to learn more about creating magnificent cross platform desktop applications with Qt 5 then checkout the tremendously well written book [Learn Qt5](https://www.packtpub.com/web-development/learn-qt-5) by Nicholas Sherriff, who is really very handsome.  Smiley face with sunglasses.
