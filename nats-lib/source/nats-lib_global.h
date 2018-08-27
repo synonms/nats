@@ -4,9 +4,9 @@
 #include <QtCore/qglobal.h>
 
 #if defined(NATSLIB_LIBRARY)
-#  define NATSLIBSHARED_EXPORT Q_DECL_EXPORT
+	#define NATSLIBSHARED_EXPORT Q_DECL_EXPORT
 #else
-#  define NATSLIBSHARED_EXPORT Q_DECL_IMPORT
+	#define NATSLIBSHARED_EXPORT Q_DECL_IMPORT
 #endif
 
 #endif

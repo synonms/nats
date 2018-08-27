@@ -3,9 +3,8 @@
 #include <QAbstractSocket>
 #include <QSslError>
 
-namespace synonms {
-namespace nats {
-namespace networking {
+using namespace synonms::nats::logging;
+using namespace synonms::nats::networking;
 
 static const std::map<QAbstractSocket::SocketError, std::string> socketErrorMapper = {
 	{QAbstractSocket::ConnectionRefusedError, "ConnectionRefusedError"}
@@ -63,63 +62,88 @@ static const std::map<QSslError::SslError, std::string> sslErrorMapper = {
 	, {QSslError::CertificateBlacklisted, "CertificateBlacklisted"}
 };
 
-QtSocket::QtSocket(QObject* parent)
+class QtSocket::Implementation
+{
+public:
+	Implementation(std::shared_ptr<ILogger> logger)
+		: logger(logger)
+	{
+	}
+
+	std::shared_ptr<ILogger> logger;
+	QSslSocket socket;
+};
+
+QtSocket::QtSocket(std::shared_ptr<ILogger> logger, QObject* parent)
 	: QObject(parent)
 {
-	QObject::connect(&_socket, &QSslSocket::connected, this, &QtSocket::ConnectedDelegate);
-	QObject::connect(&_socket, &QSslSocket::disconnected, this, &QtSocket::DisconnectedDelegate);
-	QObject::connect(&_socket, static_cast<void(QAbstractSocket::*)(QAbstractSocket::SocketError)>(&QAbstractSocket::error), this, &QtSocket::SocketErrorDelegate);
-	QObject::connect(&_socket, static_cast<void(QSslSocket::*)(const QList<QSslError> &)>(&QSslSocket::sslErrors), this, &QtSocket::SslErrorDelegate);
-	QObject::connect(&_socket, &QSslSocket::readyRead, this, &QtSocket::ReadyReadDelegate);
+	implementation.reset(new Implementation(logger));
+
+	QObject::connect(&implementation->socket, &QSslSocket::connected, this, &QtSocket::connectedDelegate);
+	QObject::connect(&implementation->socket, &QSslSocket::disconnected, this, &QtSocket::disconnectedDelegate);
+	QObject::connect(&implementation->socket, static_cast<void(QAbstractSocket::*)(QAbstractSocket::SocketError)>(&QAbstractSocket::error), this, &QtSocket::socketErrorDelegate);
+	QObject::connect(&implementation->socket, static_cast<void(QSslSocket::*)(const QList<QSslError> &)>(&QSslSocket::sslErrors), this, &QtSocket::sslErrorDelegate);
+	QObject::connect(&implementation->socket, &QSslSocket::readyRead, this, &QtSocket::readyReadDelegate);
 }
 
 QtSocket::~QtSocket()
 {
 }
 
-void QtSocket::Connect(const std::string& host, uint16_t port)
+void QtSocket::connect(const std::string& host, uint16_t port)
 {
-	if (_socket.isOpen()) return;
+	if (implementation->socket.isOpen()) return;
 
-	qDebug() << "Connecting...";
+	implementation->logger->debug("Connecting...", LOG_DEFAULTS);
 
-	_socket.connectToHost(QString(host.c_str()), port);
+	implementation->socket.connectToHost(QString(host.c_str()), port);
 }
 
-void QtSocket::Disconnect()
+void QtSocket::disconnect()
 {
-	if (!_socket.isOpen()) return;
+	if (!implementation->socket.isOpen()) return;
 
-	qDebug() << "Disconnecting...";
+	implementation->logger->debug("Disconnecting...", LOG_DEFAULTS);
 
-	_socket.disconnectFromHost();
+	implementation->socket.disconnectFromHost();
 }
 
-void QtSocket::ConnectedDelegate()
+void QtSocket::send(const std::string& message)
 {
-	qDebug() << "ConnectedDelegate()";
+	implementation->logger->debug("Sending " + message, LOG_DEFAULTS);;
 
-	for(const auto& func : _connectedEventHandlers) func();
+	implementation->socket.write(message.c_str());
 }
 
-void QtSocket::DisconnectedDelegate()
+void QtSocket::connectedDelegate()
 {
-	qDebug() << "DisconnectedDelegate()";
+	implementation->logger->debug("Connected", LOG_DEFAULTS);
 
-	for(const auto& func : _disconnectedEventHandlers) func();
+	for(const auto& func : ConnectedEventHandlers) func();
 }
 
-void QtSocket::SocketErrorDelegate(QAbstractSocket::SocketError socketError)
+void QtSocket::disconnectedDelegate()
 {
+	implementation->logger->debug("Disconnected", LOG_DEFAULTS);
+
+	for(const auto& func : DisconnectedEventHandlers) func();
+}
+
+void QtSocket::socketErrorDelegate(QAbstractSocket::SocketError socketError)
+{
+	implementation->logger->debug("SocketError", LOG_DEFAULTS);
+
 	auto errorMessage = std::string("Unknown");
 
 	if (socketErrorMapper.find(socketError) != std::end(socketErrorMapper)) errorMessage = socketErrorMapper.at(socketError);
 
-	for(const auto& func : _socketErrorEventHandlers) func(std::move(errorMessage));
+	for(const auto& func : SocketErrorEventHandlers) func(errorMessage);
 }
 
-void QtSocket::SslErrorDelegate(const QList<QSslError>& sslErrors)
+void QtSocket::sslErrorDelegate(const QList<QSslError>& sslErrors)
 {
+	implementation->logger->debug("SslError", LOG_DEFAULTS);
+
 	std::vector<std::string> errorMessages;
 
 	for(const auto& sslError : sslErrors)
@@ -131,17 +155,16 @@ void QtSocket::SslErrorDelegate(const QList<QSslError>& sslErrors)
 		errorMessages.push_back(errorMessage);
 	}
 
-	for(const auto& func : _sslErrorEventHandlers) func(std::move(errorMessages));
+	for(const auto& func : SslErrorEventHandlers) func(errorMessages);
 }
 
-void QtSocket::ReadyReadDelegate()
+void QtSocket::readyReadDelegate()
 {
-	auto data = _socket.readAll();
+	implementation->logger->debug("ReadyRead", LOG_DEFAULTS);
 
-	std::vector<uint8_t> message(data.begin(), data.end());
+	auto data = implementation->socket.readAll();
 
-	if(message.empty()) return;
+	implementation->logger->debug("Read " + std::to_string(data.size()) + " bytes", LOG_DEFAULTS);
 
-	for(const auto& func : _readyReadEventHandlers) func(std::move(message));
+	for(const auto& func : ReadyReadEventHandlers) func(data.toStdString());
 }
-}}}

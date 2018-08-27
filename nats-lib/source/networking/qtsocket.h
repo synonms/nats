@@ -1,10 +1,12 @@
 #ifndef QTSOCKET_H
 #define QTSOCKET_H
 
-#include <networking/isocket.h>
 #include <nats-lib_global.h>
+#include <networking/isocket.h>
+#include <logging/i-logger.h>
 
 #include <functional>
+#include <memory>
 
 #include <QObject>
 #include <QSslSocket>
@@ -18,29 +20,23 @@ class NATSLIBSHARED_EXPORT QtSocket : public QObject, public ISocket
 	Q_OBJECT
 
 public:
-	explicit QtSocket(QObject* parent = nullptr);
+	explicit QtSocket(std::shared_ptr<logging::ILogger> logger, QObject* parent = nullptr);
 	~QtSocket() override;
 
-	std::vector<std::function<void()>> _connectedEventHandlers;
-	std::vector<std::function<void()>> _disconnectedEventHandlers;
-	std::vector<std::function<void(std::string&&)>> _socketErrorEventHandlers;
-	std::vector<std::function<void(std::vector<std::string>&&)>> _sslErrorEventHandlers;
-	std::vector<std::function<void(std::vector<uint8_t>&&)>> _readyReadEventHandlers;
-
-	void Connect(const std::string& host, uint16_t port) override;
-	void Disconnect() override;
+	void connect(const std::string& host, uint16_t port) override;
+	void disconnect() override;
+	void send(const std::string& message) override;
 
 private slots:
-
-	void ConnectedDelegate();
-	void DisconnectedDelegate();
-	void SocketErrorDelegate(QAbstractSocket::SocketError socketError);
-	void SslErrorDelegate(const QList<QSslError>& sslErrors);
-	void ReadyReadDelegate();
+	void connectedDelegate();
+	void disconnectedDelegate();
+	void socketErrorDelegate(QAbstractSocket::SocketError socketError);
+	void sslErrorDelegate(const QList<QSslError>& sslErrors);
+	void readyReadDelegate();
 
 private:
-	QSslSocket _socket;
-
+	class Implementation;
+	std::unique_ptr<Implementation> implementation;
 };
 
 }}}

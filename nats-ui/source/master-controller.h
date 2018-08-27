@@ -5,26 +5,27 @@
 #include <QScopedPointer>
 #include <QString>
 
-namespace synonats {
+namespace synonms {
+namespace nats {
 namespace controllers {
 
 class MasterController : public QObject
 {
 	Q_OBJECT
 
-	Q_PROPERTY( QString ui_welcomeMessage READ welcomeMessage CONSTANT )
-
 public:
 	explicit MasterController(QObject* parent = nullptr);
 	~MasterController();
 
-	const QString& welcomeMessage() const;
+public slots:
+	void connect();
+	void disconnect();
 
 private:
 	class Implementation;
 	QScopedPointer<Implementation> implementation;
 };
 
-}}
+}}}
 
 #endif
